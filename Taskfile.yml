@@ -1,0 +1,99 @@
+version: '3'
+
+tasks:
+  default:
+    desc: "利用可能なタスクを表示"
+    cmds:
+      - task --list
+
+  build:
+    desc: "バイナリをビルド"
+    cmds:
+      - echo "==> バイナリをビルド中..."
+      - go build -o tumiki-mcp-http ./cmd/tumiki-mcp-http
+      - echo "ビルド完了 tumiki-mcp-http"
+
+  install:
+    desc: "ビルド済みバイナリを/usr/local/binにインストール"
+    deps: [build]
+    cmds:
+      - echo "==> バイナリをインストール中..."
+      - sudo cp tumiki-mcp-http /usr/local/bin/
+      - 'echo "インストール完了: /usr/local/bin/tumiki-mcp-http"'
+      - tumiki-mcp-http --help
+
+  install-tools:
+    desc: "必要なツールをインストール"
+    cmds:
+      - echo "==> ツールをインストール中..."
+      - |
+        if ! command -v golangci-lint &> /dev/null; then
+          echo "golangci-lintをインストールしています..."
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        fi
+      - |
+        if ! command -v goimports &> /dev/null; then
+          echo "goimportsをインストールしています..."
+          go install golang.org/x/tools/cmd/goimports@latest
+        fi
+      - echo "ツールのインストール完了"
+
+  fmt:
+    desc: "コードをフォーマット"
+    deps: [install-tools]
+    cmds:
+      - echo "==> コードをフォーマット中..."
+      - go fmt ./...
+      - "{{.GOPATH}}/bin/goimports -w -local tumiki-mcp-http ."
+      - echo "フォーマット完了"
+    vars:
+      GOPATH:
+        sh: go env GOPATH
+
+  lint:
+    desc: "リンターを実行"
+    deps: [install-tools]
+    cmds:
+      - echo "==> リンターを実行中..."
+      - "{{.GOPATH}}/bin/golangci-lint run ./..."
+      - echo "リント完了"
+    vars:
+      GOPATH:
+        sh: go env GOPATH
+
+  vet:
+    desc: "go vetを実行"
+    cmds:
+      - echo "==> go vetを実行中..."
+      - go vet ./...
+      - echo "go vet完了"
+
+  test:
+    desc: "テストを実行"
+    cmds:
+      - echo "==> テストを実行中..."
+      - go test -v -race ./...
+      - echo "テスト完了"
+
+  coverage:
+    desc: "カバレッジ付きテストを実行"
+    cmds:
+      - echo "==> カバレッジ付きテストを実行中..."
+      - go test -v -race -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+      - echo ""
+      - echo "HTMLレポートを生成するには go tool cover -html=coverage.out -o coverage.html"
+      - echo "カバレッジテスト完了"
+
+  check:
+    desc: "全チェックを実行（CI/CD用）"
+    deps: [fmt, vet, lint, test]
+    cmds:
+      - echo "全チェック完了"
+
+  clean:
+    desc: "ビルド成果物を削除"
+    cmds:
+      - echo "==> ビルド成果物を削除中..."
+      - rm -f tumiki-mcp-http coverage.out coverage.html
+      - echo "クリーンアップ完了"

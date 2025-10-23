@@ -1,0 +1,61 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - gofmt          # gofmtでフォーマットチェック
+    - goimports      # importの整理
+    - govet          # go vetでエラーチェック
+    - errcheck       # エラーハンドリングのチェック
+    - staticcheck    # 静的解析
+    - unused         # 未使用コードの検出
+    - gosimple       # コードの簡素化提案
+    - ineffassign    # 非効率な代入の検出
+    - typecheck      # 型チェック
+    - misspell       # スペルミスのチェック
+    - revive         # golintの後継、コーディング規約チェック
+    - gocritic       # 詳細なコード品質チェック
+
+linters-settings:
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: tumiki-mcp-http
+
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+      - name: var-naming
+        severity: warning
+        disabled: false
+      - name: package-comments
+        severity: warning
+        disabled: false
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  # 除外するパターン
+  exclude-rules:
+    # main関数のエラーハンドリング（log.Fatal使用）は許容
+    - path: cmd/tumiki-mcp-http/main.go
+      linters:
+        - errcheck
+      text: "Error return value of.*log.Fatal"
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

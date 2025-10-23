@@ -1,3 +1,4 @@
+// Package proxy provides HTTP proxy server functionality for stdio-based MCP servers.
 package proxy
 
 import (
@@ -30,12 +31,14 @@ type Config struct {
 	HeaderArgMapping map[string]string // ヘッダー→引数マッピング
 }
 
+// Server is an HTTP proxy server that forwards requests to stdio-based MCP servers.
 type Server struct {
 	cfg    *Config
 	logger *slog.Logger
 	server *http.Server
 }
 
+// NewServer creates a new Server with the specified configuration and logger.
 func NewServer(cfg *Config, logger *slog.Logger) (*Server, error) {
 	s := &Server{
 		cfg:    cfg,
@@ -84,8 +87,10 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		envVars[k] = v
 	}
 
-	// 2. 引数マージ
-	args := append(s.cfg.Args, headerArgs...)
+	// 2. 引数マージ（元のスライスを変更しない）
+	args := make([]string, 0, len(s.cfg.Args)+len(headerArgs))
+	args = append(args, s.cfg.Args...)
+	args = append(args, headerArgs...)
 
 	// 3. リクエストボディ読み込み
 	body, err := io.ReadAll(r.Body)
@@ -93,7 +98,11 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil && s.logger != nil {
+			s.logger.Debug("Failed to close request body", "error", err)
+		}
+	}()
 
 	// 4. stdio プロセス実行
 	ctx, cancel := context.WithTimeout(r.Context(), ProcessTimeout)
@@ -116,7 +125,9 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 	// 5. レスポンス返却
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(response)
+	if _, err := w.Write(response); err != nil && s.logger != nil {
+		s.logger.Debug("Failed to write response", "error", err)
+	}
 }
 
 // Handler returns the HTTP handler for testing purposes
@@ -124,6 +135,7 @@ func (s *Server) Handler() http.Handler {
 	return s.server.Handler
 }
 
+// Start starts the HTTP server and blocks until the context is cancelled.
 func (s *Server) Start(ctx context.Context) error {
 	errChan := make(chan error, 1)
 

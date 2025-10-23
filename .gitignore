@@ -1,1 +1,5 @@
 tumiki-mcp-http
+
+# テスト関連
+coverage.out
+coverage.html

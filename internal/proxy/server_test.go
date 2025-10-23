@@ -151,7 +151,10 @@ func TestHandleMCP_Basic(t *testing.T) {
 		HeaderArgMapping: map[string]string{},
 	}
 
-	server, _ := NewServer(cfg, logger)
+	server, err := NewServer(cfg, logger)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
 
 	req := httptest.NewRequest("POST", "/mcp", bytes.NewReader([]byte("test input\n")))
 	w := httptest.NewRecorder()
@@ -159,7 +162,11 @@ func TestHandleMCP_Basic(t *testing.T) {
 	server.handleMCP(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Status = %d, want %d (body: %s)", resp.StatusCode, http.StatusOK, w.Body.String())
@@ -186,7 +193,10 @@ func TestHandleMCP_WithHeaderMapping(t *testing.T) {
 		HeaderArgMapping: map[string]string{},
 	}
 
-	server, _ := NewServer(cfg, logger)
+	server, err := NewServer(cfg, logger)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
 
 	// ヘッダーで環境変数を上書き
 	req := httptest.NewRequest("POST", "/mcp", bytes.NewReader([]byte("test\n")))
@@ -196,7 +206,11 @@ func TestHandleMCP_WithHeaderMapping(t *testing.T) {
 	server.handleMCP(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Status = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -221,8 +235,14 @@ func TestServer_Start_Shutdown(t *testing.T) {
 	}
 
 	// HOST環境変数をテスト用に設定
-	os.Setenv("HOST", "127.0.0.1")
-	defer os.Unsetenv("HOST")
+	if err := os.Setenv("HOST", "127.0.0.1"); err != nil {
+		t.Fatalf("Failed to set HOST env: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("HOST"); err != nil {
+			t.Errorf("Failed to unset HOST env: %v", err)
+		}
+	}()
 
 	server, err := NewServer(cfg, logger)
 	if err != nil {
@@ -264,7 +284,10 @@ func TestHandleMCP_InvalidBody(t *testing.T) {
 		HeaderArgMapping: map[string]string{},
 	}
 
-	server, _ := NewServer(cfg, logger)
+	server, err := NewServer(cfg, logger)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
 
 	// エラーを起こすボディ（nilリーダー）
 	req := httptest.NewRequest("POST", "/mcp", nil)
@@ -273,7 +296,11 @@ func TestHandleMCP_InvalidBody(t *testing.T) {
 	server.handleMCP(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("Failed to close response body: %v", err)
+		}
+	}()
 
 	// nilボディは有効なので、エラーにはならない
 	if resp.StatusCode != http.StatusOK {

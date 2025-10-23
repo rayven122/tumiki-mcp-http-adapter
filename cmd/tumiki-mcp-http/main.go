@@ -1,3 +1,4 @@
+// Package main は tumiki-mcp-http プロキシサーバーのメインエントリーポイントを提供します。
 package main
 
 import (
@@ -21,6 +22,7 @@ func (a *ArrayFlags) String() string {
 	return strings.Join(*a, ",")
 }
 
+// Set は ArrayFlags に値を追加します。
 func (a *ArrayFlags) Set(value string) error {
 	*a = append(*a, value)
 	return nil
@@ -120,21 +122,23 @@ func parseStdioCommand(stdioCmd string) []string {
 	quoteChar := rune(0)
 
 	for i, r := range stdioCmd {
-		switch r {
-		case '"', '\'':
-			if !inQuote {
+		switch {
+		case r == '"' || r == '\'':
+			switch {
+			case !inQuote:
 				inQuote = true
 				quoteChar = r
-			} else if r == quoteChar {
+			case r == quoteChar:
 				inQuote = false
 				quoteChar = 0
-			} else {
+			default:
 				current.WriteRune(r)
 			}
-		case ' ':
-			if inQuote {
+		case r == ' ':
+			switch {
+			case inQuote:
 				current.WriteRune(r)
-			} else if current.Len() > 0 {
+			case current.Len() > 0:
 				parts = append(parts, current.String())
 				current.Reset()
 			}
@@ -192,11 +196,19 @@ func startServer(cfg *proxy.Config, logLevel string) {
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	// deferが実行されるように、os.Exit前にstopを呼ぶ
+	var exitCode int
+	defer func() {
+		stop()
+		if exitCode != 0 {
+			os.Exit(exitCode)
+		}
+	}()
 
 	if err := proxyServer.Start(ctx); err != nil {
 		logger.Error("Server error", "error", err)
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
 
 	logger.Info("Server stopped")
