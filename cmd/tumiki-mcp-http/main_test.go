@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"tumiki-mcp-http/internal/proxy"
+	"github.com/rayven122/tumiki-mcp-http-adapter/internal/proxy"
 )
 
 func TestParseMapping(t *testing.T) {

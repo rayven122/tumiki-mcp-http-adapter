@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"tumiki-mcp-http/internal/process"
+	"github.com/rayven122/tumiki-mcp-http-adapter/internal/process"
 )
 
 // タイムアウト設定は定数として定義

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	"tumiki-mcp-http/internal/proxy"
+	"github.com/rayven122/tumiki-mcp-http-adapter/internal/proxy"
 )
 
 // ArrayFlags - 複数回指定可能なフラグ
