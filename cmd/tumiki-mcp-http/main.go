@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"tumiki-mcp-http/internal/proxy"
 )
@@ -38,10 +37,8 @@ func main() {
 
 		// ネットワーク設定
 		port = flag.Int("port", 8080, "listen port")
-		host = flag.String("host", "0.0.0.0", "bind host")
 
 		// デバッグ
-		verbose  = flag.Bool("verbose", false, "verbose logging")
 		logLevel = flag.String("log-level", "info", "log level (debug/info/warn/error)")
 	)
 
@@ -62,23 +59,24 @@ func main() {
 		fmt.Println("  tumiki-mcp-http --stdio \"npx -y server-slack\" \\")
 		fmt.Println("    --header-env \"X-Slack-Token=SLACK_TOKEN\" \\")
 		fmt.Println("    --header-arg \"X-Team-Id=team-id\"")
+		fmt.Println("\n  # Custom host binding (use HOST environment variable)")
+		fmt.Println("  HOST=127.0.0.1 tumiki-mcp-http --stdio \"npx -y server-filesystem /data\"")
 		os.Exit(1)
 	}
 
 	// 設定を構築
 	cfg := buildConfigFromFlags(
-		*stdioCmd, envVars, headerEnvMappings, headerArgMappings,
-		*host, *port,
+		*stdioCmd, envVars, headerEnvMappings, headerArgMappings, *port,
 	)
 
 	// サーバー起動
-	startServer(cfg, *verbose, *logLevel)
+	startServer(cfg, *logLevel)
 }
 
 func buildConfigFromFlags(
 	stdioCmd string,
 	envVars, headerEnvMappings, headerArgMappings ArrayFlags,
-	host string, port int,
+	port int,
 ) *proxy.Config {
 	// stdioコマンドのパース
 	cmdParts := parseStdioCommand(stdioCmd)
@@ -94,24 +92,12 @@ func buildConfigFromFlags(
 	headerArgMap := parseMapping(headerArgMappings)
 
 	cfg := &proxy.Config{
-		// Server settings
-		Host:            host,
-		Port:            port,
-		ReadTimeout:     30 * time.Second,
-		WriteTimeout:    30 * time.Second,
-		ShutdownTimeout: 10 * time.Second,
-
-		// Stdio command
-		Command: cmdParts[0],
-		Args:    cmdParts[1:],
-
-		// Environment variables
+		Port:             port,
+		Command:          cmdParts[0],
+		Args:             cmdParts[1:],
 		DefaultEnv:       envMap,
 		HeaderEnvMapping: headerEnvMap,
 		HeaderArgMapping: headerArgMap,
-
-		// Process settings
-		ProcessTimeout: 30 * time.Second,
 	}
 
 	return cfg
@@ -179,8 +165,8 @@ func parseMapping(mappings ArrayFlags) map[string]string {
 	return result
 }
 
-func startServer(cfg *proxy.Config, verbose bool, logLevel string) {
-	logger := initLogger(verbose, logLevel)
+func startServer(cfg *proxy.Config, logLevel string) {
+	logger := initLogger(logLevel)
 
 	proxyServer, err := proxy.NewServer(cfg, logger)
 	if err != nil {
@@ -199,7 +185,7 @@ func startServer(cfg *proxy.Config, verbose bool, logLevel string) {
 	logger.Info("Server stopped")
 }
 
-func initLogger(verbose bool, logLevel string) *slog.Logger {
+func initLogger(logLevel string) *slog.Logger {
 	var level slog.Level
 	switch strings.ToLower(logLevel) {
 	case "debug":
@@ -210,10 +196,6 @@ func initLogger(verbose bool, logLevel string) *slog.Logger {
 		level = slog.LevelError
 	default:
 		level = slog.LevelInfo
-	}
-
-	if verbose {
-		level = slog.LevelDebug
 	}
 
 	opts := &slog.HandlerOptions{

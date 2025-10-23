@@ -132,7 +132,12 @@ docker run -p 8080:8080 \
 --stdio <command>          # stdioコマンド全体を指定（必須）
 --env <KEY=VALUE>          # 環境変数（複数指定可）
 --port <number>            # ポート（デフォルト: 8080）
---host <address>           # ホスト（デフォルト: 0.0.0.0）
+```
+
+**ホスト設定**: 環境変数 `HOST` で設定可能（デフォルト: 0.0.0.0）
+
+```bash
+HOST=127.0.0.1 tumiki-mcp-http --stdio "npx -y server-filesystem /data"
 ```
 
 ### ヘッダーマッピングオプション
@@ -182,8 +187,7 @@ curl -X POST http://localhost:8080/mcp \
 ### デバッグオプション
 
 ```bash
---verbose                  # 詳細ログ出力
---log-level <level>        # ログレベル (debug/info/warn/error)
+--log-level <level>        # ログレベル (debug/info/warn/error、デフォルト: info)
 ```
 
 ---
@@ -193,18 +197,26 @@ curl -X POST http://localhost:8080/mcp \
 ```text
 tumiki-mcp-http-adapter/
 ├── cmd/tumiki-mcp-http/     # メインアプリケーション
-│   └── main.go
+│   ├── main.go
+│   └── main_test.go
 ├── internal/                 # プライベートパッケージ
-│   ├── config/              # 設定管理
-│   ├── headers/             # ヘッダー解析
-│   ├── proxy/               # HTTPサーバー
+│   ├── proxy/               # HTTPサーバー、ヘッダー解析
+│   │   ├── server.go
+│   │   └── server_test.go
 │   └── process/             # プロセス実行
-├── pkg/                      # 外部から利用可能なパッケージ
-│   └── headers/             # ヘッダーマッピングユーティリティ
-├── test/                     # 統合テスト
-└── docs/                     # ドキュメント
-    └── IMPLEMENTATION_PLAN.md
+│       ├── executor.go
+│       └── executor_test.go
+├── docs/                     # ドキュメント
+│   └── IMPLEMENTATION_PLAN.md
+├── go.mod                    # Go モジュール定義
+└── README.md                 # 本ドキュメント
 ```
+
+**シンプル化のポイント**:
+- 2つのパッケージのみ（proxy、process）
+- 設定ファイルなし（CLI フラグのみ）
+- 統合テストなし（MVP では単体テストのみ）
+- 外部依存ゼロ（標準ライブラリのみ）
 
 ---
 
@@ -223,30 +235,23 @@ go test -cover ./...
 go test -v ./...
 
 # 特定パッケージのみ
-go test ./internal/config
-go test ./internal/headers
-go test ./internal/process
 go test ./internal/proxy
-go test ./pkg/headers
-go test ./test
+go test ./internal/process
 ```
 
 ### テストの構成
 
 **内部パッケージテスト**:
 
-- `internal/config/config_test.go` - 設定ファイル読み込みと環境変数展開
-- `internal/headers/parser_test.go` - カスタムヘッダーマッピング解析
+- `internal/proxy/server_test.go` - HTTP サーバー、MCP ハンドラー、ヘッダー解析
 - `internal/process/executor_test.go` - stdio プロセス実行
-- `internal/proxy/server_test.go` - HTTP サーバーと MCP ハンドラー
 
-**公開パッケージテスト**:
-
-- `pkg/headers/mapper_test.go` - 公開ヘッダーマッピング API
-
-**統合テスト**:
-
-- `test/integration_test.go` - エンドツーエンド統合テスト
+**主要テストケース**:
+- ヘッダー解析（parseHeaders 関数）の検証
+- 環境変数とデフォルト値のマージ動作
+- HTTP リクエスト/レスポンス処理
+- プロセス実行と入出力処理
+- エラーハンドリング
 
 ---
 

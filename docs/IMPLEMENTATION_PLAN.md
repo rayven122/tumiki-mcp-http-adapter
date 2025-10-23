@@ -82,20 +82,13 @@ tumiki-mcp-http-adapter/
 │       └── main_test.go         # CLI テスト
 │
 ├── internal/                    # プライベートパッケージ
-│   ├── headers/
-│   │   ├── parser.go           # ヘッダー解析（カスタムマッピング）
-│   │   └── parser_test.go      # ヘッダー解析テスト
-│   │
 │   ├── proxy/
-│   │   ├── server.go           # HTTP サーバー、MCP ハンドラー、Config 定義
-│   │   └── server_test.go      # プロキシテスト
+│   │   ├── server.go           # HTTP サーバー、MCP ハンドラー、Config 定義、ヘッダー解析
+│   │   └── server_test.go      # プロキシ・ヘッダー解析テスト
 │   │
 │   └── process/
 │       ├── executor.go         # stdio プロセス実行
 │       └── executor_test.go    # プロセス実行テスト
-│
-├── test/
-│   └── integration_test.go     # 統合テスト
 │
 ├── docs/
 │   └── IMPLEMENTATION_PLAN.md  # 本ドキュメント
@@ -124,44 +117,40 @@ tumiki-mcp-http-adapter/
 --stdio <command>              // stdio コマンド全体（必須）
 --env <KEY=VALUE>              // 環境変数（複数可）
 --port <number>                // ポート番号（デフォルト: 8080）
---host <address>               // ホスト（デフォルト: 0.0.0.0）
 
 // ヘッダーマッピング
 --header-env <HEADER=ENV_VAR>  // ヘッダー→環境変数マッピング（複数可）
 --header-arg <HEADER=arg-name> // ヘッダー→引数マッピング（複数可）
 
 // デバッグ
---verbose                      // 詳細ログ
---log-level <level>            // ログレベル (debug/info/warn/error)
+--log-level <level>            // ログレベル (debug/info/warn/error、デフォルト: info)
 ```
+
+**注**: `--host` は環境変数 `HOST` で設定可能（デフォルト: 0.0.0.0）
 
 ### 2. internal/proxy/
 
-**責務**: HTTP サーバー、MCP エンドポイントハンドラー、設定定義
+**責務**: HTTP サーバー、MCP エンドポイントハンドラー、設定定義、ヘッダー解析
 
 **主要型定義**:
 ```go
-// Config - シンプル化された設定構造体（proxy パッケージ内に定義）
+// Config - 最小限の設定構造体（proxy パッケージ内に定義）
 type Config struct {
-    // Server settings
-    Host            string
-    Port            int
-    ReadTimeout     time.Duration
-    WriteTimeout    time.Duration
-    ShutdownTimeout time.Duration
-
-    // Stdio command
-    Command string
-    Args    []string
-
-    // Environment variables
-    DefaultEnv       map[string]string
-    HeaderEnvMapping map[string]string
-    HeaderArgMapping map[string]string
-
-    // Process settings
-    ProcessTimeout time.Duration
+    Port             int               // サーバーポート（必須）
+    Command          string            // stdio コマンド（必須）
+    Args             []string          // コマンド引数
+    DefaultEnv       map[string]string // デフォルト環境変数
+    HeaderEnvMapping map[string]string // ヘッダー→環境変数マッピング
+    HeaderArgMapping map[string]string // ヘッダー→引数マッピング
 }
+
+// タイムアウト設定は定数として定義
+const (
+    ReadTimeout     = 30 * time.Second
+    WriteTimeout    = 30 * time.Second
+    ShutdownTimeout = 5 * time.Second
+    ProcessTimeout  = 30 * time.Second
+)
 
 type Server struct {
     cfg    *Config
@@ -176,54 +165,22 @@ func NewServer(cfg *Config, logger *slog.Logger) (*Server, error)
 func (s *Server) Start(ctx context.Context) error
 func (s *Server) Handler() http.Handler  // テスト用
 func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request)
+func parseHeaders(headers http.Header, envMapping, argMapping map[string]string) (map[string]string, []string)
 ```
 
-**handleMCP の処理フロー**（シンプル化後）:
-1. カスタムヘッダーマッピングで環境変数・引数を抽出
+**handleMCP の処理フロー**:
+1. `parseHeaders()` でカスタムヘッダーマッピングに基づき環境変数・引数を抽出
 2. デフォルト環境変数とマージ
 3. リクエストボディ読み込み
 4. stdio プロセス実行
 5. レスポンス返却
 
-### 3. internal/headers/
+**parseHeaders() の動作**:
+- ヘッダー名をマッピング定義に従って環境変数名・引数名に変換
+- 環境変数: `map[string]string` として返却
+- 引数: `--key value` 形式の文字列配列として返却
 
-**責務**: HTTP ヘッダーの解析とカスタムマッピング処理
-
-**主要関数**:
-```go
-// カスタムマッピングに基づいてヘッダーを解析
-func ParseCustomHeaders(
-    headers http.Header,
-    envMapping map[string]string,
-    argMapping map[string]string,
-) (envVars map[string]string, args []string)
-```
-
-**動作例**:
-```go
-// マッピング定義
-envMapping := map[string]string{
-    "X-Slack-Token": "SLACK_TOKEN",
-}
-argMapping := map[string]string{
-    "X-Team-Id": "team-id",
-    "X-Channel": "channel",
-}
-
-// HTTP ヘッダー
-headers := http.Header{
-    "X-Slack-Token": []string{"xoxp-xxxxx"},
-    "X-Team-Id":     []string{"T123"},
-    "X-Channel":     []string{"general"},
-}
-
-// 解析結果
-envVars, args := ParseCustomHeaders(headers, envMapping, argMapping)
-// envVars = {"SLACK_TOKEN": "xoxp-xxxxx"}
-// args = ["--team-id", "T123", "--channel", "general"]
-```
-
-### 4. internal/process/
+### 3. internal/process/
 
 **責務**: stdio プロセスの起動と入出力処理
 
@@ -319,48 +276,29 @@ SLACK_TOKEN=xoxp-12345
 ### 単体テスト
 
 **カバレッジ対象**:
-- `internal/headers` - カスタムヘッダーマッピング解析
+- `internal/proxy` - HTTP ハンドラーロジック、ヘッダー解析、Config 定義
 - `internal/process` - プロセス実行（モック使用）
-- `internal/proxy` - HTTP ハンドラーロジック、Config 定義
 
 **テスト実行**:
 ```bash
 go test ./internal/...
 ```
 
-### 統合テスト
-
-**テスト対象**:
-- エンドツーエンドの HTTP リクエスト処理
-- カスタムヘッダーマッピングの動作確認
-- プロセス実行とレスポンス返却の検証
-
-**テストケース例**:
-```go
-// test/integration_test.go
-func TestServerIntegration(t *testing.T) {
-    // 基本的な MCP リクエスト処理
-    // カスタムヘッダー付きリクエスト
-    // 環境変数と引数のマッピング検証
-}
-
-func TestHeaderMappingIntegration(t *testing.T) {
-    // ヘッダー→環境変数マッピングの検証
-    // ヘッダー→引数マッピングの検証
-}
-```
-
-**テスト実行**:
-```bash
-go test ./test
-```
+**主要テストケース**:
+- ヘッダー解析（parseHeaders 関数）の検証
+- 環境変数とデフォルト値のマージ動作
+- HTTP リクエスト/レスポンス処理
+- プロセス実行と入出力処理
+- エラーハンドリング
 
 ### テスト方針
 
 1. **モック使用**: 外部プロセス呼び出しはモック化
-2. **httptest 活用**: HTTP サーバーのテストは `httptest.NewServer` を使用
+2. **httptest 活用**: HTTP サーバーのテストは `httptest.NewRecorder` を使用
 3. **テーブル駆動**: 複数のテストケースを構造化して実行
 4. **エラーケース**: 正常系だけでなく異常系もカバー
+
+**注**: 統合テストは MVP では含めず、必要に応じて後から追加可能
 
 ---
 
@@ -486,20 +424,33 @@ GOOS=linux GOARCH=amd64 go build -o tumiki-mcp-http ./cmd/tumiki-mcp-http
 **技術的な強み**:
 
 - Go 1.25+ 標準ライブラリ中心の実装（最小限の依存）
-- 小さなコードベース（3パッケージのみ）
+- 小さなコードベース（2パッケージのみ）
 - 構造化ログ（slog）による運用性
 - Context ベースの適切なリソース管理
 
 **シンプル化のポイント**:
 
+- **パッケージ構造**: internal/headers を proxy に統合（3パッケージ → 2パッケージ）
+- **CLI フラグ**: 必要最小限の5個のフラグ（--stdio, --env, --port, --header-env, --header-arg, --log-level）
+- **Config**: 6フィールドのみ（タイムアウトは定数化）
+- **テスト**: 単体テストのみ（統合テストは MVP では不要）
 - **設定**: CLIフラグのみ（YAML設定ファイル不要）
 - **エンドポイント**: /mcp のみ（/health 削除）
 - **サーバー管理**: 単一サーバー専用（複数サーバー切り替え不要）
 - **認証**: 認証機能なし（必要なら外部で実装）
 - **公開API**: 内部利用のみ（pkg/ 削除）
 
+**削減効果**:
+
+- ディレクトリ数: 5個 → 3個（40%削減）
+- パッケージ数: 3個 → 2個（33%削減）
+- CLI フラグ: 8個 → 5個（38%削減）
+- Config フィールド: 11個 → 6個（45%削減）
+- テストファイル: 4個 → 2個（50%削減）
+- **推定コード量削減**: 約 40-50%
+
 **設計思想**:
 
 - HTTPリクエストを受け取り、ヘッダーを環境変数・引数に変換してstdioプロセスを実行するだけの極めてシンプルな設計
 - 認証・複雑な設定管理・複数サーバー対応は含まず、必要に応じて外部（リバースプロキシ等）で実装
-- **コード量30-40%削減**: 理解しやすく、保守しやすい実装
+- **極限までシンプル**: 理解しやすく、保守しやすく、拡張しやすい実装
