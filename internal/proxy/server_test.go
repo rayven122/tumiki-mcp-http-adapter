@@ -145,8 +145,8 @@ func TestHandleMCP_Basic(t *testing.T) {
 
 	cfg := &Config{
 		Port:             8080,
-		Command:          "echo",
-		Args:             []string{"test"},
+		Command:          "cat",
+		Args:             []string{},
 		DefaultEnv:       map[string]string{},
 		HeaderEnvMapping: map[string]string{},
 		HeaderArgMapping: map[string]string{},

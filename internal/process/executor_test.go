@@ -22,15 +22,15 @@ func TestExecutor_Execute(t *testing.T) {
 		validate    func(t *testing.T, output []byte)
 	}{
 		{
-			name:        "シンプルなechoコマンド",
-			command:     "echo",
-			args:        []string{"hello"},
+			name:        "シンプルなcatコマンド",
+			command:     "cat",
+			args:        []string{},
 			env:         map[string]string{},
 			input:       []byte("test input"),
 			expectError: false,
 			validate: func(t *testing.T, output []byte) {
-				if len(output) == 0 {
-					t.Error("Expected non-empty output")
+				if !strings.Contains(string(output), "test input") {
+					t.Errorf("Output should contain input: got %s", output)
 				}
 			},
 		},
@@ -132,12 +132,12 @@ func TestExecutor_MultipleEnvVars(t *testing.T) {
 		"VAR3": "value3",
 	}
 
-	executor := NewExecutor("sh", []string{"-c", "echo $VAR1 $VAR2 $VAR3"}, env, logger)
+	executor := NewExecutor("sh", []string{"-c", "read line && echo \"$VAR1 $VAR2 $VAR3:$line\""}, env, logger)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	output, err := executor.Execute(ctx, []byte(""))
+	output, err := executor.Execute(ctx, []byte("input"))
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -145,8 +145,9 @@ func TestExecutor_MultipleEnvVars(t *testing.T) {
 	result := string(output)
 	if !strings.Contains(result, "value1") ||
 		!strings.Contains(result, "value2") ||
-		!strings.Contains(result, "value3") {
-		t.Errorf("Output should contain all env vars: got %s", result)
+		!strings.Contains(result, "value3") ||
+		!strings.Contains(result, "input") {
+		t.Errorf("Output should contain all env vars and input: got %s", result)
 	}
 }
 
