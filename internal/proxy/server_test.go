@@ -296,7 +296,7 @@ func TestHandleMCP_InvalidBody(t *testing.T) {
 
 	cfg := &Config{
 		Port:             8080,
-		Command:          "echo",
+		Command:          "cat",
 		Args:             []string{},
 		DefaultEnv:       map[string]string{},
 		HeaderEnvMapping: map[string]string{},
