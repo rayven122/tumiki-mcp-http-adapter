@@ -3,6 +3,8 @@
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/rayven122/tumiki-mcp-http-adapter/workflows/CI/badge.svg)](https://github.com/rayven122/tumiki-mcp-http-adapter/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/rayven122/tumiki-mcp-http-adapter)](https://github.com/rayven122/tumiki-mcp-http-adapter/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rayven122/tumiki-mcp-http-adapter)](https://goreportcard.com/report/github.com/rayven122/tumiki-mcp-http-adapter)
 
 ## 目次
 
