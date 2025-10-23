@@ -50,13 +50,14 @@ func TestExecutor_Execute(t *testing.T) {
 		{
 			name:        "環境変数を使用するコマンド",
 			command:     "sh",
-			args:        []string{"-c", "echo $TEST_VAR"},
+			args:        []string{"-c", "read line && echo \"$TEST_VAR:$line\""},
 			env:         map[string]string{"TEST_VAR": "test-value"},
-			input:       []byte(""),
+			input:       []byte("input-data"),
 			expectError: false,
 			validate: func(t *testing.T, output []byte) {
-				if !strings.Contains(string(output), "test-value") {
-					t.Errorf("Output should contain env var value: got %s", output)
+				expected := "test-value:input-data"
+				if !strings.Contains(string(output), expected) {
+					t.Errorf("Output should contain '%s': got %s", expected, output)
 				}
 			},
 		},

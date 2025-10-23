@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -183,7 +184,7 @@ func TestHandleMCP_WithHeaderMapping(t *testing.T) {
 	cfg := &Config{
 		Port:    8080,
 		Command: "sh",
-		Args:    []string{"-c", "echo $VAR1"},
+		Args:    []string{"-c", "read line && echo \"$VAR1:$line\""},
 		DefaultEnv: map[string]string{
 			"VAR1": "default",
 		},
@@ -219,6 +220,11 @@ func TestHandleMCP_WithHeaderMapping(t *testing.T) {
 	body := w.Body.String()
 	if body == "" {
 		t.Error("Expected non-empty response")
+	}
+
+	// ヘッダーで上書きされた環境変数の値が含まれているか確認
+	if !strings.Contains(body, "override") {
+		t.Errorf("Response should contain header value 'override': got %s", body)
 	}
 }
 
