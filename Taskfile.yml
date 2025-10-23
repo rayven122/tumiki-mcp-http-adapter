@@ -69,10 +69,17 @@ tasks:
       - echo "go vet完了"
 
   test:
-    desc: "テストを実行"
+    desc: "テストを実行（ローカル開発用、レースディテクター有効）"
     cmds:
       - echo "==> テストを実行中..."
       - go test -v -race ./...
+      - echo "テスト完了"
+
+  test-ci:
+    desc: "テストを実行（CI用、レースディテクター無効）"
+    cmds:
+      - echo "==> テストを実行中（CI）..."
+      - go test -v ./...
       - echo "テスト完了"
 
   coverage:
@@ -86,10 +93,16 @@ tasks:
       - echo "カバレッジテスト完了"
 
   check:
-    desc: "全チェックを実行（CI/CD用）"
+    desc: "全チェックを実行（ローカル開発用）"
     deps: [fmt, vet, lint, test]
     cmds:
       - echo "全チェック完了"
+
+  check-ci:
+    desc: "全チェックを実行（CI用）"
+    deps: [fmt, vet, lint, test-ci]
+    cmds:
+      - echo "全チェック完了（CI）"
 
   clean:
     desc: "ビルド成果物を削除"

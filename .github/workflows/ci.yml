@@ -30,9 +30,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run checks
-        run: task check
-        env:
-          CGO_ENABLED: 1
+        run: task check-ci
 
       - name: Upload coverage
         if: success()
