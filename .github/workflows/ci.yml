@@ -11,8 +11,7 @@ on:
 jobs:
   test:
     name: Test
-    runs-on:
-      group: self-arc
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -22,7 +21,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-          cache: false  # 依存関係がないためキャッシュを無効化
+          cache: true
 
       - name: Install Task
         uses: arduino/setup-task@v2

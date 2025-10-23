@@ -1,6 +1,133 @@
-# Tumiki MCP HTTP Adapter - 開発ガイドライン
+# CLAUDE.md
 
-このプロジェクトのコーディング規約とテストポリシーを定義します。
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## プロジェクト概要
+
+stdio MCP サーバーを HTTP エンドポイントとして公開する Go 実装プロキシサーバー。
+Streamable HTTP パターンを採用し、HTTP ヘッダーから動的に環境変数・引数を設定可能。
+
+## アーキテクチャ構成
+
+### パッケージ構造
+
+```
+cmd/tumiki-mcp-http/     # エントリーポイント
+  ├─ CLI フラグ解析
+  ├─ 設定ビルド (buildConfigFromFlags)
+  └─ サーバー起動 (startServer)
+
+internal/proxy/          # HTTPサーバー層
+  ├─ HTTP リクエスト処理 (handleMCP)
+  ├─ ヘッダー解析 (parseHeaders)
+  └─ 動的マッピング管理
+
+internal/process/        # プロセス実行層
+  ├─ stdio プロセス起動 (Execute)
+  ├─ stdin/stdout/stderr パイプ管理
+  └─ タイムアウト・Context 制御
+```
+
+### データフロー
+
+1. **HTTP Request** → `proxy.handleMCP()`
+2. **ヘッダー解析** → `parseHeaders()` で環境変数・引数を抽出
+3. **設定マージ** → デフォルト環境変数 + ヘッダー由来の値
+4. **プロセス実行** → `process.Execute()` で stdio MCP サーバー起動
+5. **HTTP Response** → stdout から読み取った JSON-RPC レスポンスを返却
+
+### 重要な設計パターン
+
+#### 1. Streamable HTTP パターン
+
+HTTP リクエストごとに異なる環境変数・引数を動的に設定できる設計。
+
+**CLI 起動時（マッピング定義）**:
+```bash
+--header-env "X-Slack-Token=SLACK_TOKEN"  # ヘッダー → 環境変数
+--header-arg "X-Team-Id=team-id"          # ヘッダー → 引数
+```
+
+**HTTP リクエスト時（実際の値）**:
+```
+X-Slack-Token: xoxp-12345  →  環境変数 SLACK_TOKEN=xoxp-12345
+X-Team-Id: T123            →  引数 --team-id T123
+```
+
+実装: `internal/proxy/server.go:parseHeaders()`
+
+#### 2. リクエストごとの独立プロセス
+
+- 各 HTTP リクエストで独立した stdio プロセスを起動
+- ステートレス設計（プロセス間で状態共有なし）
+- Context 伝播でクライアント切断時の適切なクリーンアップ
+
+実装: `internal/process/executor.go:Execute()`
+
+#### 3. データレース対策
+
+`stderr` の非同期読み取りで `sync.WaitGroup` を使用してデータレースを防止。
+
+```go
+var stderrWg sync.WaitGroup
+stderrWg.Add(1)
+go func() {
+    defer stderrWg.Done()
+    io.Copy(&stderrBuf, stderr)
+}()
+// ... プロセス処理 ...
+stderrWg.Wait()  // stderr 読み取り完了を待つ
+```
+
+実装: `internal/process/executor.go:Execute()`
+
+## 開発コマンド
+
+### 必須ツール
+
+- **Go 1.25+**
+- **[Task](https://taskfile.dev/)** - タスクランナー
+
+```bash
+# 開発ツールの一括インストール
+task install-tools
+```
+
+### よく使うコマンド
+
+```bash
+# ビルド
+task build
+
+# テスト実行（ローカル開発用、race detector 有効）
+task test
+
+# カバレッジ測定
+task coverage
+
+# コードフォーマット + リント + テスト（コミット前に実行）
+task check
+
+# クリーンアップ
+task clean
+
+# ビルドせずに実行（開発時）
+go run ./cmd/tumiki-mcp-http --stdio "npx -y @modelcontextprotocol/server-filesystem /data"
+
+# 特定パッケージのみテスト
+go test -v ./internal/proxy
+go test -v ./internal/process
+
+# レースディテクター付きテスト
+go test -race ./...
+```
+
+### CI 用コマンド
+
+```bash
+# CI では race detector を無効化（パフォーマンス理由）
+task check-ci
+```
 
 ## テストポリシー
 
@@ -9,7 +136,6 @@
 **原則: 単体テストは対象ファイルのカバレッジ100%を目指す**
 
 #### テスト対象
-以下の関数は必ず単体テストを作成すること:
 - ✅ ビジネスロジックを含む全ての関数
 - ✅ パブリック関数・メソッド
 - ✅ 内部ヘルパー関数（ロジックを含む場合）
@@ -17,7 +143,6 @@
 - ✅ バリデーション関数
 
 #### テスト除外対象
-以下は単体テストのカバレッジ要件から除外可能:
 - ❌ `main()` 関数（エントリーポイント）
 - ❌ サーバー起動関数（`startServer`など）
 - ❌ ロガー初期化などのセットアップ関数
@@ -25,59 +150,37 @@
 
 これらは統合テストやE2Eテストでカバーする。
 
-### テストの品質基準
-
-#### 0. テスト名の命名規則
+### テスト名の命名規則
 
 **原則: テスト名は「入力条件_期待される結果」の形式で記述する**
 
-テスト名は以下の要素を含むこと:
-- ✅ **Given（前提条件）**: どのような入力・状態か
-- ✅ **Then（期待結果）**: どうなるべきか
-
 ```go
-// ❌ 悪い例: 入力の状態のみ
-{name: "単一のマッピング", ...}
+// ❌ 悪い例: 結果が不明確
 {name: "値にイコールを含む場合", ...}
-{name: "空", ...}
 
 // ✅ 良い例: 入力条件_期待される結果
-{name: "単一のマッピング_正しくパースされる", ...}
-{name: "値にイコールを含む場合_エラーを返す", ...}
+{name: "値にイコールを含む環境変数_エラーを返す", ...}
 {name: "空の入力_空のマップを返す", ...}
 ```
 
 **命名パターン例:**
 
 ```go
-// パターン1: 正常系
+// 正常系
 "正常な環境変数1つ_マップに変換される"
 "複数の環境変数_全てマップに変換される"
-"空の入力_空のマップを返す"
 
-// パターン2: 異常系
+// 異常系
 "値に=を含む環境変数_エラーを返す"
 "無効なフォーマット_無視される"
-"nilの入力_エラーを返す"
 
-// パターン3: エッジケース
+// エッジケース
 "特殊文字を含む値_正しくエスケープされる"
-"最大長の文字列_切り詰められずに処理される"
 "Unicode文字列_正しくパースされる"
 ```
 
-**テスト名で避けるべきこと:**
-- ❌ 結果が不明確: "値にイコールを含む場合"（何が起こる？）
-- ❌ 曖昧な表現: "正常な入力"（何が正常？）
-- ❌ 実装詳細: "parseMapping関数が呼ばれる"
-- ❌ 日本語と英語の混在: "正常なinput_成功する"
+### テストケースの網羅性
 
-**推奨する形式:**
-- ✅ `"入力条件_期待される動作"`
-- ✅ `"前提条件_結果"`
-- ✅ 日本語で統一（プロジェクトの標準）
-
-#### 1. テストケースの網羅性
 各関数のテストは以下を含むこと:
 
 ```go
@@ -86,20 +189,20 @@ func TestXxx(t *testing.T) {
         name     string
         input    InputType
         expected OutputType
-        wantError bool  // エラーケースの場合
+        wantError bool
     }{
         // ✅ 正常系: 典型的なケース
-        {name: "正常な入力_期待する出力を返す", input: validInput, expected: validOutput},
+        {name: "正常な入力_期待する出力を返す", ...},
 
         // ✅ 正常系: 境界値
-        {name: "空の入力_空の結果を返す", input: emptyInput, expected: emptyOutput},
-        {name: "最大値_正しく処理される", input: maxInput, expected: maxOutput},
+        {name: "空の入力_空の結果を返す", ...},
+        {name: "最大値_正しく処理される", ...},
 
         // ✅ 異常系: エラーケース
-        {name: "無効な入力_エラーを返す", input: invalidInput, wantError: true},
+        {name: "無効な入力_エラーを返す", ..., wantError: true},
 
         // ✅ エッジケース: 特殊な条件
-        {name: "特殊文字を含む入力_エスケープされて処理される", input: specialInput, expected: specialOutput},
+        {name: "特殊文字を含む入力_エスケープされて処理される", ...},
     }
 
     for _, tt := range tests {
@@ -125,17 +228,11 @@ func TestXxx(t *testing.T) {
 }
 ```
 
-#### 2. エラーハンドリングのテスト
+### エラーハンドリングのテスト
 
 **必須**: エラーを返す関数は、エラーケースを必ずテストすること
 
 ```go
-// ❌ 悪い例: エラーケースのテストなし
-func TestParseEnvVars(t *testing.T) {
-    result := parseEnvVars(ArrayFlags{"KEY=value"})
-    // 正常系のみ
-}
-
 // ✅ 良い例: エラーケースもテスト
 func TestParseEnvVars(t *testing.T) {
     tests := []struct {
@@ -143,29 +240,18 @@ func TestParseEnvVars(t *testing.T) {
         input     ArrayFlags
         wantError bool
     }{
-        {name: "正常", input: ArrayFlags{"KEY=value"}, wantError: false},
-        {name: "エラー", input: ArrayFlags{"KEY=value=invalid"}, wantError: true},
+        {name: "正常_エラーなし", input: ArrayFlags{"KEY=value"}, wantError: false},
+        {name: "値に=を含む_エラーを返す", input: ArrayFlags{"KEY=value=invalid"}, wantError: true},
     }
     // ...
 }
 ```
 
-#### 3. テストデータの品質
+### カバレッジ測定
 
-- ✅ テストケース名は日本語で明確に記述
-- ✅ 各テストケースは独立して実行可能
-- ✅ テストデータは実際の使用例に基づく
-- ✅ エッジケースを必ず含める
-
-### カバレッジ確認方法
-
-#### テスト実行とカバレッジ測定
 ```bash
-# テスト実行
-go test -v ./cmd/tumiki-mcp-http/
-
 # カバレッジ測定
-go test -coverprofile=coverage.out ./cmd/tumiki-mcp-http/
+go test -coverprofile=coverage.out ./...
 
 # カバレッジ詳細表示
 go tool cover -func=coverage.out
@@ -174,93 +260,12 @@ go tool cover -func=coverage.out
 go tool cover -html=coverage.out -o coverage.html
 ```
 
-#### カバレッジ基準
-
-```
-テスト可能な関数: 100% 目標
-├─ ビジネスロジック関数: 100% 必須
-├─ パブリック関数: 100% 必須
-├─ ヘルパー関数: 100% 必須
-└─ 統合的な関数: 除外可能（main、startServerなど）
-
-全体: 50%以上（統合テスト関数を除く）
-```
-
-### 実装例
-
-#### parseEnvVars関数のテスト例
-```go
-func TestParseEnvVars(t *testing.T) {
-    tests := []struct {
-        name      string
-        envVars   ArrayFlags
-        expected  map[string]string
-        wantError bool
-    }{
-        {
-            name:      "単一の環境変数_マップに変換される",
-            envVars:   ArrayFlags{"KEY=value"},
-            expected:  map[string]string{"KEY": "value"},
-            wantError: false,
-        },
-        {
-            name:      "複数の環境変数_全てマップに変換される",
-            envVars:   ArrayFlags{"KEY1=value1", "KEY2=value2"},
-            expected:  map[string]string{"KEY1": "value1", "KEY2": "value2"},
-            wantError: false,
-        },
-        {
-            name:      "値に=を含む環境変数_エラーを返す",
-            envVars:   ArrayFlags{"KEY=value=invalid"},
-            expected:  nil,
-            wantError: true,
-        },
-        {
-            name:      "イコールなしの無効フォーマット_無視される",
-            envVars:   ArrayFlags{"INVALID"},
-            expected:  map[string]string{},
-            wantError: false,
-        },
-        {
-            name:      "空の入力_空のマップを返す",
-            envVars:   ArrayFlags{},
-            expected:  map[string]string{},
-            wantError: false,
-        },
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            result, err := parseEnvVars(tt.envVars)
-            if tt.wantError {
-                if err == nil {
-                    t.Errorf("expected error but got none")
-                }
-            } else {
-                if err != nil {
-                    t.Errorf("unexpected error: %v", err)
-                }
-                if !reflect.DeepEqual(result, tt.expected) {
-                    t.Errorf("got %v, want %v", result, tt.expected)
-                }
-            }
-        })
-    }
-}
-```
-
 ## コーディング規約
-
-### Go標準スタイル
-
-- `gofmt`でフォーマット
-- `golint`に従う
-- エラーハンドリングは明示的に行う
 
 ### エラーハンドリング
 
 ```go
-// ✅ 良い例: エラーを返す
+// ✅ 良い例: エラーを返す（テスト可能）
 func parseEnvVars(envVars ArrayFlags) (map[string]string, error) {
     if invalidCondition {
         return nil, fmt.Errorf("エラーメッセージ")
@@ -303,49 +308,60 @@ func parseMapping(mappings ArrayFlags) (map[string]string, error) {
 }
 ```
 
-## 開発ワークフロー
+## 重要な実装ポイント
 
-### 新機能追加時
+### 1. スライスの不変性
 
-1. **仕様確認**: 要件を明確にする
-2. **テスト設計**: テストケースを先に考える（TDD推奨）
-3. **実装**: 機能を実装
-4. **テスト作成**: カバレッジ100%を目指してテストを作成
-5. **カバレッジ確認**: `go test -cover`で確認
-6. **コミット**: テストが全て通ることを確認してからコミット
+引数マージ時に元のスライスを変更しない（並行処理の安全性）。
 
-### バグ修正時
+```go
+// ✅ 良い例: 新しいスライスを作成
+args := make([]string, 0, len(s.cfg.Args)+len(headerArgs))
+args = append(args, s.cfg.Args...)
+args = append(args, headerArgs...)
 
-1. **再現テスト作成**: バグを再現するテストを先に作成
-2. **修正**: バグを修正
-3. **テスト確認**: 再現テストが通ることを確認
-4. **リグレッションテスト**: 既存のテストが全て通ることを確認
-
-## CI/CD
-
-### 必須チェック
-
-- ✅ 全てのテストが成功すること
-- ✅ カバレッジが基準を満たすこと
-- ✅ `gofmt`が適用されていること
-- ✅ `go vet`でエラーがないこと
-
-```bash
-# CIで実行するコマンド例
-go fmt ./...
-go vet ./...
-go test -v -race -coverprofile=coverage.out ./...
-go tool cover -func=coverage.out
+// ❌ 悪い例: 元のスライスを変更
+s.cfg.Args = append(s.cfg.Args, headerArgs...)
 ```
 
-## まとめ
+実装箇所: `internal/proxy/server.go:handleMCP()`
 
-このプロジェクトでは**テストファーストの開発**を推奨します。
+### 2. Context 伝播
 
-- 🎯 テスト可能な関数は100%カバレッジを目指す
-- 🧪 正常系・異常系・エッジケースを全てテスト
-- 📝 テストケース名は日本語で明確に
-- 🔍 エラーハンドリングは必ずテスト
-- ✅ コミット前に必ずテストを実行
+- HTTP リクエストの Context をプロセス実行に伝播
+- クライアント切断時にプロセスも終了（`exec.CommandContext`）
+- タイムアウト制御（30秒のデフォルトタイムアウト）
 
-良いテストは良いコードの証です。
+```go
+ctx, cancel := context.WithTimeout(r.Context(), ProcessTimeout)
+defer cancel()
+
+cmd := exec.CommandContext(ctx, command, args...)
+```
+
+実装箇所: `internal/proxy/server.go:handleMCP()`, `internal/process/executor.go:Execute()`
+
+### 3. Graceful Shutdown
+
+defer + exitCode パターンでシグナルハンドリング時も適切にクリーンアップ。
+
+```go
+ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+var exitCode int
+defer func() {
+    stop()
+    if exitCode != 0 {
+        os.Exit(exitCode)
+    }
+}()
+```
+
+実装箇所: `cmd/tumiki-mcp-http/main.go:startServer()`
+
+## 関連ドキュメント
+
+- **[docs/DESIGN.md](docs/DESIGN.md)** - 詳細なシステムアーキテクチャ設計書
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - 開発環境セットアップ、リリース手順
+- **[README.md](README.md)** - プロジェクト概要と使用方法
+- **[Taskfile.yml](Taskfile.yml)** - タスク定義の詳細
+- **[.golangci.yml](.golangci.yml)** - リンター設定の詳細

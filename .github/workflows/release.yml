@@ -10,8 +10,7 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on:
-      group: self-arc
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
