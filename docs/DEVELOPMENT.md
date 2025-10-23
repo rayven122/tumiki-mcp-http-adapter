@@ -221,6 +221,88 @@ task build
 
 ---
 
+## リリース
+
+このプロジェクトは [GoReleaser](https://goreleaser.com/) と GitHub Actions を使って自動リリースされます。
+
+### リリース手順
+
+#### 1. リリース準備
+
+```bash
+# 最新のmainブランチを取得
+git checkout main
+git pull origin main
+
+# すべてのテストが通ることを確認
+task check
+```
+
+#### 2. バージョンタグの作成
+
+```bash
+# セマンティックバージョニングに従ってタグを作成
+# MAJOR.MINOR.PATCH (例: v1.0.0, v1.2.3)
+
+# タグを作成
+git tag -a v1.0.0 -m "Release v1.0.0"
+
+# タグをGitHubにpush
+git push origin v1.0.0
+```
+
+#### 3. 自動ビルド＆リリース
+
+タグをpushすると、GitHub Actionsが自動的に以下を実行します：
+
+1. **クロスプラットフォームビルド**: macOS/Linux/Windows向けバイナリを生成
+2. **アーカイブ作成**: tar.gz（Unix系）、zip（Windows）形式で圧縮
+3. **チェックサム生成**: sha256チェックサムファイルを作成
+4. **GitHub Releases作成**: リリースノートと共にバイナリを公開
+
+#### 4. リリース確認
+
+[Releases ページ](https://github.com/rayven122/tumiki-mcp-http-adapter/releases)でリリースが正常に公開されているか確認してください。
+
+### バージョニング
+
+[Semantic Versioning 2.0.0](https://semver.org/) に従います：
+
+- **MAJOR**: 互換性のない API 変更
+- **MINOR**: 後方互換性のある機能追加
+- **PATCH**: 後方互換性のあるバグ修正
+
+**例**:
+- `v1.0.0`: 最初の安定版リリース
+- `v1.1.0`: 新機能追加
+- `v1.1.1`: バグ修正
+- `v2.0.0`: 破壊的変更を含むメジャーアップデート
+
+### プレリリース
+
+ベータ版やリリース候補版は以下の形式でタグを作成します：
+
+```bash
+# ベータ版
+git tag -a v1.0.0-beta.1 -m "Beta release v1.0.0-beta.1"
+
+# リリース候補版
+git tag -a v1.0.0-rc.1 -m "Release candidate v1.0.0-rc.1"
+
+git push origin <tag>
+```
+
+GoReleaserは自動的にプレリリースとして扱います。
+
+### リリース設定
+
+リリース設定は以下のファイルで管理されています：
+
+- **[.goreleaser.yaml](../.goreleaser.yaml)**: GoReleaserの設定
+- **[.github/workflows/release.yml](../.github/workflows/release.yml)**: GitHub Actionsワークフロー
+
+---
+
 ## 参考資料
 
 - **[README.md](../README.md)** - プロジェクト概要と使用方法
@@ -228,3 +310,4 @@ task build
 - **[CLAUDE.md](../CLAUDE.md)** - テストポリシーとコーディング規約
 - **[Taskfile.yml](../Taskfile.yml)** - タスク定義の詳細
 - **[.golangci.yml](../.golangci.yml)** - リンター設定の詳細
+- **[GoReleaser Documentation](https://goreleaser.com/)** - GoReleaserの公式ドキュメント

@@ -1,0 +1,106 @@
+# GoReleaser configuration for automated releases
+# https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    # Ensure dependencies are up to date
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: tumiki-mcp-http
+    main: ./cmd/tumiki-mcp-http
+    binary: tumiki-mcp-http
+
+    env:
+      - CGO_ENABLED=0
+
+    goos:
+      - linux
+      - darwin
+      - windows
+
+    goarch:
+      - amd64
+      - arm64
+
+    # Windows does not support arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+    # Use zip for Windows
+    format_overrides:
+      - goos: windows
+        format: zip
+
+    files:
+      - LICENSE
+      - README.md
+      - docs/**/*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'typo'
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: rayven122
+    name: tumiki-mcp-http-adapter
+
+  draft: false
+  prerelease: auto
+
+  name_template: "{{.ProjectName}} v{{.Version}}"
+
+  header: |
+    ## Tumiki MCP HTTP Adapter {{.Version}}
+
+    stdio MCP サーバーを HTTP エンドポイントとして公開する Go 実装プロキシサーバー
+
+    ### インストール方法
+
+    詳細は [README.md](https://github.com/rayven122/tumiki-mcp-http-adapter/blob/main/README.md#インストール) を参照してください。
+
+  footer: |
+    **Full Changelog**: https://github.com/rayven122/tumiki-mcp-http-adapter/compare/{{.PreviousTag}}...{{.Tag}}
