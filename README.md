@@ -160,13 +160,14 @@ SLACK_TOKEN=xoxp-xxxxx
 
 ### オプション一覧
 
-| オプション                  | 説明                                                  | 必須 | 複数指定 |
-| --------------------------- | ----------------------------------------------------- | ---- | -------- |
-| `--stdio <command>`         | stdio モードで実行する MCP サーバーのコマンド         | ✅   | ❌       |
-| `--env <KEY=VALUE>`         | デフォルト環境変数の設定                              | ❌   | ✅       |
-| `--header-env <HEADER=ENV>` | HTTP ヘッダーから環境変数へのマッピング               | ❌   | ✅       |
-| `--header-arg <HEADER=ARG>` | HTTP ヘッダーからコマンド引数へのマッピング           | ❌   | ✅       |
-| `--log-level <level>`       | ログレベル（debug/info/warn/error、デフォルト: info） | ❌   | ❌       |
+| オプション                  | 説明                                                  | 必須 | 複数指定 | デフォルト |
+| --------------------------- | ----------------------------------------------------- | ---- | -------- | ---------- |
+| `--stdio <command>`         | stdio モードで実行する MCP サーバーのコマンド         | ✅   | ❌       | -          |
+| `--port <port>`             | サーバーのポート                                      | ❌   | ❌       | `8080`     |
+| `--env <KEY=VALUE>`         | デフォルト環境変数の設定                              | ❌   | ✅       | -          |
+| `--header-env <HEADER=ENV>` | HTTP ヘッダーから環境変数へのマッピング               | ❌   | ✅       | -          |
+| `--header-arg <HEADER=ARG>` | HTTP ヘッダーからコマンド引数へのマッピング           | ❌   | ✅       | -          |
+| `--log-level <level>`       | ログレベル（debug/info/warn/error、デフォルト: info） | ❌   | ❌       | `info`     |
 
 ### 環境変数での設定
 
@@ -175,11 +176,10 @@ SLACK_TOKEN=xoxp-xxxxx
 | 環境変数 | 説明             | デフォルト |
 | -------- | ---------------- | ---------- |
 | `HOST`   | サーバーのホスト | `0.0.0.0`  |
-| `PORT`   | サーバーのポート | `8080`     |
 
 ```bash
-# 例: ローカルホストのみでポート3000で起動
-HOST=127.0.0.1 PORT=3000 tumiki-mcp-http --stdio "npx -y server-filesystem /data"
+# 例: 環境変数でホスト指定、コマンドラインオプションでポート指定
+HOST=127.0.0.1 tumiki-mcp-http --port 3000 --stdio "npx -y server-filesystem /data"
 ```
 
 ---

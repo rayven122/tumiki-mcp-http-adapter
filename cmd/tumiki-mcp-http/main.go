@@ -38,7 +38,7 @@ func main() {
 		headerArgMappings ArrayFlags
 
 		// ネットワーク設定
-		port = flag.Int("port", 8080, "listen port")
+		port = flag.Int("port", 8080, "listen port (default: 8080)")
 
 		// デバッグ
 		logLevel = flag.String("log-level", "info", "log level (debug/info/warn/error)")
