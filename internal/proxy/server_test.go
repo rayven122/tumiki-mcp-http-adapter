@@ -126,14 +126,27 @@ func TestParseHeaders(t *testing.T) {
 				}
 			}
 
-			// 引数の検証
+			// 引数の検証（順序は保証されないため、内容のみチェック）
 			if len(gotArgs) != len(tt.wantArgs) {
-				t.Errorf("parseHeaders() args = %v, want %v", gotArgs, tt.wantArgs)
+				t.Errorf("parseHeaders() args length = %d, want %d (got: %v, want: %v)", len(gotArgs), len(tt.wantArgs), gotArgs, tt.wantArgs)
 				return
 			}
-			for i := range tt.wantArgs {
-				if gotArgs[i] != tt.wantArgs[i] {
-					t.Errorf("parseHeaders() args[%d] = %v, want %v", i, gotArgs[i], tt.wantArgs[i])
+			// 引数がペア（フラグ名、値）で存在することを確認
+			gotArgsMap := make(map[string]string)
+			for i := 0; i < len(gotArgs); i += 2 {
+				if i+1 < len(gotArgs) {
+					gotArgsMap[gotArgs[i]] = gotArgs[i+1]
+				}
+			}
+			wantArgsMap := make(map[string]string)
+			for i := 0; i < len(tt.wantArgs); i += 2 {
+				if i+1 < len(tt.wantArgs) {
+					wantArgsMap[tt.wantArgs[i]] = tt.wantArgs[i+1]
+				}
+			}
+			for k, v := range wantArgsMap {
+				if gotArgsMap[k] != v {
+					t.Errorf("parseHeaders() args[%s] = %v, want %v", k, gotArgsMap[k], v)
 				}
 			}
 		})
