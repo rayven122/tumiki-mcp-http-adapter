@@ -85,11 +85,20 @@ func buildConfigFromFlags(
 	}
 
 	// 環境変数のパース（--envフラグ）
-	envMap := parseEnvVars(envVars)
+	envMap, err := parseEnvVars(envVars)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// ヘッダーマッピングのパース
-	headerEnvMap := parseMapping(headerEnvMappings)
-	headerArgMap := parseMapping(headerArgMappings)
+	headerEnvMap, err := parseMapping(headerEnvMappings)
+	if err != nil {
+		log.Fatal(err)
+	}
+	headerArgMap, err := parseMapping(headerArgMappings)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	cfg := &proxy.Config{
 		Port:             port,
@@ -105,7 +114,7 @@ func buildConfigFromFlags(
 
 func parseStdioCommand(stdioCmd string) []string {
 	// シェルスタイルのコマンド文字列を解析
-	var parts []string
+	parts := []string{}
 	var current strings.Builder
 	inQuote := false
 	quoteChar := rune(0)
@@ -142,27 +151,35 @@ func parseStdioCommand(stdioCmd string) []string {
 	return parts
 }
 
-func parseEnvVars(envVars ArrayFlags) map[string]string {
+func parseEnvVars(envVars ArrayFlags) (map[string]string, error) {
 	envMap := make(map[string]string)
 	for _, env := range envVars {
 		parts := strings.SplitN(env, "=", 2)
 		if len(parts) == 2 {
+			// 値に '=' が含まれているかチェック
+			if strings.Contains(parts[1], "=") {
+				return nil, fmt.Errorf("environment variable value cannot contain '=' character: %s\nValue: %s", env, parts[1])
+			}
 			envMap[parts[0]] = parts[1]
 		}
 	}
-	return envMap
+	return envMap, nil
 }
 
 // parseMapping は "KEY=VALUE" 形式の配列をマップに変換します
-func parseMapping(mappings ArrayFlags) map[string]string {
+func parseMapping(mappings ArrayFlags) (map[string]string, error) {
 	result := make(map[string]string)
 	for _, mapping := range mappings {
 		parts := strings.SplitN(mapping, "=", 2)
 		if len(parts) == 2 {
+			// 値に '=' が含まれているかチェック
+			if strings.Contains(parts[1], "=") {
+				return nil, fmt.Errorf("mapping value cannot contain '=' character: %s\nValue: %s", mapping, parts[1])
+			}
 			result[parts[0]] = parts[1]
 		}
 	}
-	return result
+	return result, nil
 }
 
 func startServer(cfg *proxy.Config, logLevel string) {

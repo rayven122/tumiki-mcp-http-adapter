@@ -55,7 +55,7 @@ func TestParseHeaders(t *testing.T) {
 		wantArgs    []string
 	}{
 		{
-			name:    "empty headers",
+			name:    "空のヘッダー",
 			headers: http.Header{},
 			envMapping: map[string]string{
 				"X-Slack-Token": "SLACK_TOKEN",
@@ -65,7 +65,7 @@ func TestParseHeaders(t *testing.T) {
 			wantArgs:    []string{},
 		},
 		{
-			name: "env mapping",
+			name: "環境変数へのマッピング",
 			headers: http.Header{
 				"X-Slack-Token": []string{"xoxp-12345"},
 			},
@@ -79,7 +79,7 @@ func TestParseHeaders(t *testing.T) {
 			wantArgs: []string{},
 		},
 		{
-			name: "arg mapping",
+			name: "引数へのマッピング",
 			headers: http.Header{
 				"X-Team-Id": []string{"T123"},
 				"X-Channel": []string{"general"},
@@ -93,7 +93,7 @@ func TestParseHeaders(t *testing.T) {
 			wantArgs:    []string{"--team-id", "T123", "--channel", "general"},
 		},
 		{
-			name: "both env and arg mapping",
+			name: "環境変数と引数の両方へのマッピング",
 			headers: http.Header{
 				"X-Slack-Token": []string{"xoxp-12345"},
 				"X-Team-Id":     []string{"T123"},

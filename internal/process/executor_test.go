@@ -22,7 +22,7 @@ func TestExecutor_Execute(t *testing.T) {
 		validate    func(t *testing.T, output []byte)
 	}{
 		{
-			name:        "simple echo command",
+			name:        "シンプルなechoコマンド",
 			command:     "echo",
 			args:        []string{"hello"},
 			env:         map[string]string{},
@@ -35,7 +35,7 @@ func TestExecutor_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:        "cat command (reads stdin)",
+			name:        "catコマンド（標準入力を読み取る）",
 			command:     "cat",
 			args:        []string{},
 			env:         map[string]string{},
@@ -48,7 +48,7 @@ func TestExecutor_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:        "command with environment variable",
+			name:        "環境変数を使用するコマンド",
 			command:     "sh",
 			args:        []string{"-c", "echo $TEST_VAR"},
 			env:         map[string]string{"TEST_VAR": "test-value"},
@@ -61,7 +61,7 @@ func TestExecutor_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:        "nonexistent command",
+			name:        "存在しないコマンド",
 			command:     "nonexistent-command-12345",
 			args:        []string{},
 			env:         map[string]string{},
