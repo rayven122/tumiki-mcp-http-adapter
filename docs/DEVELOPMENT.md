@@ -1,5 +1,7 @@
 # Tumiki MCP HTTP Adapter - 開発ガイド
 
+**Languages**: 日本語 | [🇬🇧 English](DEVELOPMENT_EN.md)
+
 ## 開発環境のセットアップ
 
 ### 必要なツール

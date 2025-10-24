@@ -6,6 +6,8 @@
 [![Release](https://img.shields.io/github/v/release/rayven122/tumiki-mcp-http-adapter)](https://github.com/rayven122/tumiki-mcp-http-adapter/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rayven122/tumiki-mcp-http-adapter)](https://goreportcard.com/report/github.com/rayven122/tumiki-mcp-http-adapter)
 
+**Languages**: 日本語 | [🇬🇧 English](README_EN.md)
+
 ## 目次
 
 - [概要](#概要)

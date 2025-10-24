@@ -1,5 +1,7 @@
 # Tumiki MCP HTTP Adapter - システムアーキテクチャ設計書
 
+**Languages**: 日本語 | [🇬🇧 English](DESIGN_EN.md)
+
 ## システムアーキテクチャ
 
 ### システム構成図
