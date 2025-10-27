@@ -15,7 +15,7 @@ import (
 	"github.com/rayven122/tumiki-mcp-http-adapter/internal/proxy"
 )
 
-// ArrayFlags - 複数回指定可能なフラグ
+// ArrayFlags は複数回指定可能なフラグ型です。
 type ArrayFlags []string
 
 func (a *ArrayFlags) String() string {
@@ -40,7 +40,7 @@ func main() {
 		// ネットワーク設定
 		port = flag.Int("port", 8080, "listen port (default: 8080)")
 
-		// デバッグ
+		// ログレベル
 		logLevel = flag.String("log-level", "info", "log level (debug/info/warn/error)")
 	)
 
@@ -87,17 +87,17 @@ func buildConfigFromFlags(
 	}
 
 	// 環境変数のパース（--envフラグ）
-	envMap, err := parseEnvVars(envVars)
+	envMap, err := parseKeyValuePairs(envVars, "environment variable")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// ヘッダーマッピングのパース
-	headerEnvMap, err := parseMapping(headerEnvMappings)
+	headerEnvMap, err := parseKeyValuePairs(headerEnvMappings, "header-env mapping")
 	if err != nil {
 		log.Fatal(err)
 	}
-	headerArgMap, err := parseMapping(headerArgMappings)
+	headerArgMap, err := parseKeyValuePairs(headerArgMappings, "header-arg mapping")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -155,30 +155,16 @@ func parseStdioCommand(stdioCmd string) []string {
 	return parts
 }
 
-func parseEnvVars(envVars ArrayFlags) (map[string]string, error) {
-	envMap := make(map[string]string)
-	for _, env := range envVars {
-		parts := strings.SplitN(env, "=", 2)
-		if len(parts) == 2 {
-			// 値に '=' が含まれているかチェック
-			if strings.Contains(parts[1], "=") {
-				return nil, fmt.Errorf("environment variable value cannot contain '=' character: %s\nValue: %s", env, parts[1])
-			}
-			envMap[parts[0]] = parts[1]
-		}
-	}
-	return envMap, nil
-}
-
-// parseMapping は "KEY=VALUE" 形式の配列をマップに変換します
-func parseMapping(mappings ArrayFlags) (map[string]string, error) {
+// parseKeyValuePairs は "KEY=VALUE" 形式の配列をマップに変換します。
+// valueType パラメータはエラーメッセージに使用されます（例: "environment variable", "mapping"）。
+func parseKeyValuePairs(pairs ArrayFlags, valueType string) (map[string]string, error) {
 	result := make(map[string]string)
-	for _, mapping := range mappings {
-		parts := strings.SplitN(mapping, "=", 2)
+	for _, pair := range pairs {
+		parts := strings.SplitN(pair, "=", 2)
 		if len(parts) == 2 {
 			// 値に '=' が含まれているかチェック
 			if strings.Contains(parts[1], "=") {
-				return nil, fmt.Errorf("mapping value cannot contain '=' character: %s\nValue: %s", mapping, parts[1])
+				return nil, fmt.Errorf("%s value cannot contain '=' character: %s\nValue: %s", valueType, pair, parts[1])
 			}
 			result[parts[0]] = parts[1]
 		}

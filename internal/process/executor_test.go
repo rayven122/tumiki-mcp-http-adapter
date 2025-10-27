@@ -35,7 +35,7 @@ func TestExecutor_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:        "catコマンド（標準入力を読み取る）",
+			name:        "catコマンド_標準入力を読み取る",
 			command:     "cat",
 			args:        []string{},
 			env:         map[string]string{},
@@ -117,7 +117,7 @@ func TestExecutor_ContextCancellation(t *testing.T) {
 		t.Error("Expected context cancellation error")
 	}
 
-	// タイムアウトが適切に機能したか確認
+	// タイムアウトが正しく動作したことを検証
 	if elapsed > 2*time.Second {
 		t.Errorf("Command should have been cancelled quickly, took %v", elapsed)
 	}
@@ -167,7 +167,7 @@ func TestExecutor_envSlice(t *testing.T) {
 		t.Errorf("envSlice() length = %d, want 2", len(slice))
 	}
 
-	// 各エントリーが正しい形式か確認
+	// 各エントリが正しいフォーマットであることを検証
 	found := make(map[string]bool)
 	for _, entry := range slice {
 		parts := strings.SplitN(entry, "=", 2)

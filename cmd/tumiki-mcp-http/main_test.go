@@ -7,18 +7,20 @@ import (
 	"github.com/rayven122/tumiki-mcp-http-adapter/internal/proxy"
 )
 
-func TestParseMapping(t *testing.T) {
+func TestParseKeyValuePairs(t *testing.T) {
 	tests := []struct {
 		name      string
-		mappings  ArrayFlags
+		pairs     ArrayFlags
+		valueType string
 		expected  map[string]string
 		wantError bool
 	}{
 		{
 			name: "単一のマッピング_正しくパースされる",
-			mappings: ArrayFlags{
+			pairs: ArrayFlags{
 				"X-Slack-Token=SLACK_TOKEN",
 			},
+			valueType: "mapping",
 			expected: map[string]string{
 				"X-Slack-Token": "SLACK_TOKEN",
 			},
@@ -26,11 +28,12 @@ func TestParseMapping(t *testing.T) {
 		},
 		{
 			name: "複数のマッピング_全てパースされる",
-			mappings: ArrayFlags{
+			pairs: ArrayFlags{
 				"X-Slack-Token=SLACK_TOKEN",
 				"X-Team-Id=team-id",
 				"Authorization=API_KEY",
 			},
+			valueType: "mapping",
 			expected: map[string]string{
 				"X-Slack-Token": "SLACK_TOKEN",
 				"X-Team-Id":     "team-id",
@@ -39,60 +42,11 @@ func TestParseMapping(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "値に=を含む場合_エラーを返す",
-			mappings: ArrayFlags{
-				"Header=value=with=equals",
-			},
-			expected:  nil,
-			wantError: true,
-		},
-		{
-			name: "イコールなしの無効フォーマット_無視される",
-			mappings: ArrayFlags{
-				"InvalidMapping",
-			},
-			expected:  map[string]string{},
-			wantError: false,
-		},
-		{
-			name:      "空の入力_空のマップを返す",
-			mappings:  ArrayFlags{},
-			expected:  map[string]string{},
-			wantError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseMapping(tt.mappings)
-			if tt.wantError {
-				if err == nil {
-					t.Errorf("parseMapping() expected error but got none")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("parseMapping() unexpected error: %v", err)
-				}
-				if !reflect.DeepEqual(result, tt.expected) {
-					t.Errorf("parseMapping() = %v, want %v", result, tt.expected)
-				}
-			}
-		})
-	}
-}
-
-func TestParseEnvVars(t *testing.T) {
-	tests := []struct {
-		name      string
-		envVars   ArrayFlags
-		expected  map[string]string
-		wantError bool
-	}{
-		{
 			name: "単一の環境変数_マップに変換される",
-			envVars: ArrayFlags{
+			pairs: ArrayFlags{
 				"KEY=value",
 			},
+			valueType: "environment variable",
 			expected: map[string]string{
 				"KEY": "value",
 			},
@@ -100,11 +54,12 @@ func TestParseEnvVars(t *testing.T) {
 		},
 		{
 			name: "複数の環境変数_全てマップに変換される",
-			envVars: ArrayFlags{
+			pairs: ArrayFlags{
 				"API_KEY=secret123",
 				"DATABASE_URL=postgres://localhost/db",
 				"LOG_LEVEL=debug",
 			},
+			valueType: "environment variable",
 			expected: map[string]string{
 				"API_KEY":      "secret123",
 				"DATABASE_URL": "postgres://localhost/db",
@@ -113,24 +68,27 @@ func TestParseEnvVars(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "値に=を含む環境変数_エラーを返す",
-			envVars: ArrayFlags{
-				"KEY=value=with=equals",
+			name: "値に=を含む場合_エラーを返す",
+			pairs: ArrayFlags{
+				"Header=value=with=equals",
 			},
+			valueType: "mapping",
 			expected:  nil,
 			wantError: true,
 		},
 		{
 			name: "イコールなしの無効フォーマット_無視される",
-			envVars: ArrayFlags{
-				"INVALID",
+			pairs: ArrayFlags{
+				"InvalidMapping",
 			},
+			valueType: "mapping",
 			expected:  map[string]string{},
 			wantError: false,
 		},
 		{
 			name:      "空の入力_空のマップを返す",
-			envVars:   ArrayFlags{},
+			pairs:     ArrayFlags{},
+			valueType: "mapping",
 			expected:  map[string]string{},
 			wantError: false,
 		},
@@ -138,17 +96,17 @@ func TestParseEnvVars(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseEnvVars(tt.envVars)
+			result, err := parseKeyValuePairs(tt.pairs, tt.valueType)
 			if tt.wantError {
 				if err == nil {
-					t.Errorf("parseEnvVars() expected error but got none")
+					t.Errorf("parseKeyValuePairs() expected error but got none")
 				}
 			} else {
 				if err != nil {
-					t.Errorf("parseEnvVars() unexpected error: %v", err)
+					t.Errorf("parseKeyValuePairs() unexpected error: %v", err)
 				}
 				if !reflect.DeepEqual(result, tt.expected) {
-					t.Errorf("parseEnvVars() = %v, want %v", result, tt.expected)
+					t.Errorf("parseKeyValuePairs() = %v, want %v", result, tt.expected)
 				}
 			}
 		})

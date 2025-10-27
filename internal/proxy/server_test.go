@@ -116,7 +116,7 @@ func TestParseHeaders(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotEnvVars, gotArgs := parseHeaders(tt.headers, tt.envMapping, tt.argMapping)
 
-			// 環境変数の検証
+			// 環境変数を検証
 			if len(gotEnvVars) != len(tt.wantEnvVars) {
 				t.Errorf("parseHeaders() envVars count = %d, want %d", len(gotEnvVars), len(tt.wantEnvVars))
 			}
@@ -126,12 +126,12 @@ func TestParseHeaders(t *testing.T) {
 				}
 			}
 
-			// 引数の検証（順序は保証されないため、内容のみチェック）
+			// 引数を検証（順序は保証されないため内容のみチェック）
 			if len(gotArgs) != len(tt.wantArgs) {
 				t.Errorf("parseHeaders() args length = %d, want %d (got: %v, want: %v)", len(gotArgs), len(tt.wantArgs), gotArgs, tt.wantArgs)
 				return
 			}
-			// 引数がペア（フラグ名、値）で存在することを確認
+			// 引数がペア（フラグ名、値）として存在することを検証
 			gotArgsMap := make(map[string]string)
 			for i := 0; i < len(gotArgs); i += 2 {
 				if i+1 < len(gotArgs) {
@@ -235,7 +235,7 @@ func TestHandleMCP_WithHeaderMapping(t *testing.T) {
 		t.Error("Expected non-empty response")
 	}
 
-	// ヘッダーで上書きされた環境変数の値が含まれているか確認
+	// レスポンスに環境変数を上書きしたヘッダー値が含まれていることを検証
 	if !strings.Contains(body, "override") {
 		t.Errorf("Response should contain header value 'override': got %s", body)
 	}
@@ -253,7 +253,7 @@ func TestServer_Start_Shutdown(t *testing.T) {
 		HeaderArgMapping: map[string]string{},
 	}
 
-	// HOST環境変数をテスト用に設定
+	// テスト用にHOST環境変数を設定
 	if err := os.Setenv("HOST", "127.0.0.1"); err != nil {
 		t.Fatalf("Failed to set HOST env: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestServer_Start_Shutdown(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// サーバーをゴルーチンで起動
+	// goroutineでサーバー起動
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- server.Start(ctx)
@@ -280,7 +280,7 @@ func TestServer_Start_Shutdown(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 
-	// シャットダウンが完了するまで待つ
+	// シャットダウンの完了を待つ
 	select {
 	case err := <-errChan:
 		if err != nil {
@@ -308,7 +308,7 @@ func TestHandleMCP_InvalidBody(t *testing.T) {
 		t.Fatalf("NewServer() error = %v", err)
 	}
 
-	// エラーを起こすボディ（nilリーダー）
+	// エラーを引き起こすボディ（nil reader）
 	req := httptest.NewRequest("POST", "/mcp", nil)
 	w := httptest.NewRecorder()
 
@@ -321,7 +321,7 @@ func TestHandleMCP_InvalidBody(t *testing.T) {
 		}
 	}()
 
-	// nilボディは有効なので、エラーにはならない
+	// nil bodyは有効なのでエラーは期待されない
 	if resp.StatusCode != http.StatusOK {
 		t.Logf("Status = %d (this is expected for some edge cases)", resp.StatusCode)
 	}

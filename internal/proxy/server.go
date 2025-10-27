@@ -21,7 +21,7 @@ const (
 	ProcessTimeout  = 30 * time.Second
 )
 
-// Config - 最小限の設定構造体
+// Config は プロキシサーバーの最小限の設定構造体です。
 type Config struct {
 	Port             int               // サーバーポート（必須）
 	Command          string            // stdio コマンド（必須）
@@ -157,7 +157,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 }
 
-// parseHeaders はカスタムヘッダーマッピングに基づいて HTTP ヘッダーから環境変数と引数を抽出します
+// parseHeaders はカスタムヘッダーマッピングに基づいて HTTP ヘッダーから環境変数と引数を抽出します。
 // envMapping: ヘッダー名 → 環境変数名 (例: "X-Slack-Token" → "SLACK_TOKEN")
 // argMapping: ヘッダー名 → 引数名 (例: "X-Team-Id" → "team-id")
 func parseHeaders(headers http.Header, envMapping, argMapping map[string]string) (map[string]string, []string) {
